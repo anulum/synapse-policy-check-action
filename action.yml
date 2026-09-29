@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Commercial license available
+# © Concepts 1996–2026 Miroslav Šotek. All rights reserved.
+# © Code 2020–2026 Miroslav Šotek. All rights reserved.
+# ORCID: 0009-0009-3560-0851
+# Contact: www.anulum.li | protoscience@anulum.li
+# SYNAPSE policy check — composite Action over a hash-pinned SYNAPSE CHANNEL release
+name: SYNAPSE policy check
+description: >-
+  Check a SYNAPSE release receipt against policy in CI, using a pinned,
+  hash-verified SYNAPSE CHANNEL release.
+author: ANULUM
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  task:
+    description: Task id / subject label for the decision report.
+    required: true
+  policy:
+    description: Path to the policy file (.json always; .toml on Python 3.11+).
+    required: true
+  receipt-json:
+    description: Path to the release-receipt JSON (from `synapse release --receipt-json`).
+    required: true
+  enforce:
+    description: >-
+      Exit non-zero when an enforcement-mode policy has a failing rule. The
+      default gates the job; set "false" for an advisory, report-only run.
+    required: false
+    default: "true"
+  merkle-db:
+    description: >-
+      Hub event store to recompute the receipt's coordination-log commitment
+      against; adds a merkle_commitment decision that fails when the committed
+      log prefix changed.
+    required: false
+    default: ""
+  trusted-signing-keys:
+    description: >-
+      Trusted hub verification keys (.pub files from `synapse merkle keygen`),
+      one path per line; adds a merkle_signature decision that fails unless a
+      trusted key's signature verifies over the receipt's commitment.
+    required: false
+    default: ""
+  verify-attestation:
+    description: >-
+      Also verify the GitHub build attestation of the pinned synapse-channel
+      wheel before installing it: it must have been built by the release
+      workflow of anulum/synapse-channel, from the pinned tag and commit, on a
+      GitHub-hosted runner. Needs the GitHub CLI and a token that can read
+      attestations (the default job token can).
+    required: false
+    default: "false"
+  python-version:
+    description: Python version to run the check with.
+    required: false
+    default: "3.12"
+
+outputs:
+  report:
+    description: The JSON decision report `synapse policy-check --json` printed.
+    value: ${{ steps.check.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      id: python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+        update-environment: false
+
+    - name: Download the pinned synapse-channel release
+      id: download
+      shell: bash
+      env:
+        BASE_PYTHON: ${{ steps.python.outputs.python-path }}
+      run: |
+        set -euo pipefail
+        wheels="$RUNNER_TEMP/synapse-policy-check/wheels"
+        rm -rf "$wheels"
+        mkdir -p "$wheels"
+        "$BASE_PYTHON" -m pip download --disable-pip-version-check --require-hashes \
+          --no-deps --only-binary=:all: --dest "$wheels" \
+          -r "$GITHUB_ACTION_PATH/requirements.txt"
+        echo "wheels=$wheels" >> "$GITHUB_OUTPUT"
+
+    - name: Verify the synapse-channel build attestation
+      shell: bash
+      env:
+        VERIFY_ATTESTATION: ${{ inputs.verify-attestation }}
+        WHEELS: ${{ steps.download.outputs.wheels }}
+        GH_TOKEN: ${{ github.token }}
+        CORE_REPOSITORY: anulum/synapse-channel
+        CORE_TAG: v0.99.32
+        CORE_COMMIT: 261ebdfa441264f8206f876bea686146b34da62d
+      run: |
+        set -euo pipefail
+        case "$VERIFY_ATTESTATION" in
+          false) echo "Attestation check not requested; the install is still hash-verified."; exit 0 ;;
+          true) ;;
+          *) echo "verify-attestation must be \"true\" or \"false\", got \"$VERIFY_ATTESTATION\"." >&2; exit 2 ;;
+        esac
+        shopt -s nullglob
+        core_wheels=("$WHEELS"/synapse_channel-*.whl)
+        if [ "${#core_wheels[@]}" -ne 1 ]; then
+          echo "Expected exactly one synapse-channel wheel, found ${#core_wheels[@]}." >&2
+          exit 1
+        fi
+        gh attestation verify "${core_wheels[0]}" \
+          --repo "$CORE_REPOSITORY" \
+          --signer-workflow "$CORE_REPOSITORY/.github/workflows/publish.yml" \
+          --source-ref "refs/tags/$CORE_TAG" \
+          --source-digest "$CORE_COMMIT" \
+          --deny-self-hosted-runners
+
+    - name: Install synapse-channel into an isolated environment
+      id: install
+      shell: bash
+      env:
+        BASE_PYTHON: ${{ steps.python.outputs.python-path }}
+        WHEELS: ${{ steps.download.outputs.wheels }}
+      run: |
+        set -euo pipefail
+        venv="$RUNNER_TEMP/synapse-policy-check/venv"
+        rm -rf "$venv"
+        "$BASE_PYTHON" -m venv "$venv"
+        if [ -x "$venv/bin/python" ]; then
+          python="$venv/bin/python"
+          synapse="$venv/bin/synapse"
+        else
+          python="$venv/Scripts/python.exe"
+          synapse="$venv/Scripts/synapse.exe"
+        fi
+        "$python" -m pip install --disable-pip-version-check --require-hashes --no-deps \
+          --no-index --find-links "$WHEELS" -r "$GITHUB_ACTION_PATH/requirements.txt"
+        echo "synapse=$synapse" >> "$GITHUB_OUTPUT"
+
+    - name: Run synapse policy-check
+      id: check
+      shell: bash
+      env:
+        SYNAPSE: ${{ steps.install.outputs.synapse }}
+        CHECK_TASK: ${{ inputs.task }}
+        CHECK_POLICY: ${{ inputs.policy }}
+        CHECK_RECEIPT: ${{ inputs.receipt-json }}
+        CHECK_ENFORCE: ${{ inputs.enforce }}
+        CHECK_MERKLE_DB: ${{ inputs.merkle-db }}
+        CHECK_TRUSTED_KEYS: ${{ inputs.trusted-signing-keys }}
+      run: |
+        args=(policy-check "$CHECK_TASK" --policy "$CHECK_POLICY" --receipt-json "$CHECK_RECEIPT" --json)
+        if [ "$CHECK_ENFORCE" = "true" ]; then
+          args+=(--enforce)
+        fi
+        if [ -n "$CHECK_MERKLE_DB" ]; then
+          args+=(--merkle-db "$CHECK_MERKLE_DB")
+        fi
+        while IFS= read -r key; do
+          [ -n "$key" ] && args+=(--trusted-signing-key "$key")
+        done <<< "$CHECK_TRUSTED_KEYS"
+        set +e
+        report="$("$SYNAPSE" "${args[@]}")"
+        status=$?
+        set -e
+        printf '%s\n' "$report"
+        {
+          echo "report<<SYNAPSE_POLICY_REPORT"
+          printf '%s\n' "$report"
+          echo "SYNAPSE_POLICY_REPORT"
+        } >> "$GITHUB_OUTPUT"
+        exit "$status"

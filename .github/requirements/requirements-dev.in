@@ -1,0 +1,5 @@
+pytest
+pyyaml
+mypy
+types-PyYAML
+ruff

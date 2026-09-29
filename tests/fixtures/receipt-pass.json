@@ -1,0 +1,1 @@
+{"task_id": "T1", "owner": "alice", "evidence": ["pytest -q passed"], "changed_files": []}
