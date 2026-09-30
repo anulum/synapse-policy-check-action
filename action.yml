@@ -95,8 +95,8 @@ runs:
         WHEELS: ${{ steps.download.outputs.wheels }}
         GH_TOKEN: ${{ github.token }}
         CORE_REPOSITORY: anulum/synapse-channel
-        CORE_TAG: v0.99.34
-        CORE_COMMIT: c02937f89d7eafae67a20a00d34c734c406cebb6
+        CORE_TAG: v0.99.35
+        CORE_COMMIT: 073221db0a797f40f6a207909a8ee1983efd163e
       run: |
         set -euo pipefail
         case "$VERIFY_ATTESTATION" in
