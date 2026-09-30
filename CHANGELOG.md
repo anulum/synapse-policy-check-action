@@ -16,7 +16,7 @@ Contact: www.anulum.li | protoscience@anulum.li
 - The `SYNAPSE policy check` composite Action, moved out of the SYNAPSE CHANNEL repository so it can
   be listed on its own. It keeps the inputs and the `report` output of the in-repo Action, with
   these changes:
-  - **Pinned release.** It installs the pinned SYNAPSE CHANNEL 0.99.32 from a hash lock
+  - **Pinned release.** It installs the pinned SYNAPSE CHANNEL 0.99.34 from a hash lock
     (`--require-hashes`, binary only, installed with `--no-index` from the verified download).
     The `version` input is gone: this Action's version decides the SYNAPSE CHANNEL version.
   - **Isolated environment.** The check runs from its own virtual environment. `setup-python` no

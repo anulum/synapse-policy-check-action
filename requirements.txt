@@ -1,8 +1,8 @@
 # Locked by `uv pip compile requirements.in --universal --generate-hashes --python-version 3.10`.
 # Every file is hash-pinned; the Action installs with --require-hashes.
-synapse-channel==0.99.32 \
-    --hash=sha256:1736df59595d3f4dc609240ac242239c3a926f5db1c60d0eeed0b4662cc92f88 \
-    --hash=sha256:8dbe7f6aa1a424b83cdb5dd17bd2c58a1f509b274afa1254321acbc670791260
+synapse-channel==0.99.34 \
+    --hash=sha256:3eae04fc0a3e1299940973cddce8aadde55c1bce4fc1b31982473bb988d5a9c7 \
+    --hash=sha256:f8b55d7e2c14dd3825bfd4d4509d4cfdfda9846ae25d4255480a8256ebfd5d7d
 websockets==16.1.1 ; python_full_version < '3.11' \
     --hash=sha256:01fbdcbac298efe19360b94bc0039c8f746f0220ba570f327577bfee81059175 \
     --hash=sha256:024193f8551a2b0eafbdd160911012c4e6c228c28430c84433253299a9e42d6a \

@@ -74,7 +74,7 @@ The output `report` holds the JSON decision report. The step's exit status is th
 
 | Action | SYNAPSE CHANNEL | Wheel SHA-256 | Source commit |
 | --- | --- | --- | --- |
-| unreleased | 0.99.32 | `1736df59595d3f4dc609240ac242239c3a926f5db1c60d0eeed0b4662cc92f88` | `261ebdfa441264f8206f876bea686146b34da62d` |
+| unreleased | 0.99.34 | `3eae04fc0a3e1299940973cddce8aadde55c1bce4fc1b31982473bb988d5a9c7` | `c02937f89d7eafae67a20a00d34c734c406cebb6` |
 
 ## Maintaining the pin
 
